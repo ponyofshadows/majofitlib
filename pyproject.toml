@@ -1,9 +1,48 @@
 [project]
-name = "fit-demo"
+name = "majofitlib"
 version = "0.0.0"
 requires-python = ">=3.11"
-dependencies = [
-    "matplotlib>=3.10.7",
-    "numpy>=2.3.5",
-    "scipy>=1.16.3",
+
+description = "This project provides several commonly used fitting models for condensed-matter materials laboratories."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+authors = [
+  { name = "ponyofshadows" }
 ]
+
+keywords = [
+]
+
+classifiers = [
+]
+
+
+dependencies = [
+    "matplotlib>=3.10",
+    "numpy>=2.3",
+    "scipy>=1.16",
+]
+
+[project.urls]
+Homepage = "https://github.com/ponyofshadows/majofitlib"
+Source = "https://github.com/ponyofshadows/majofitlib"
+Issues = "https://github.com/ponyofshadows/majofitlib/issues"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/majofit"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+norecursedirs = ["playground", "dist", "build", ".venv", "__pycache__"]
