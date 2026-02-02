@@ -1,0 +1,9 @@
+[project]
+name = "fit-demo"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.10.7",
+    "numpy>=2.3.5",
+    "scipy>=1.16.3",
+]
