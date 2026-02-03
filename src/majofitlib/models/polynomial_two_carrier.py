@@ -2,24 +2,26 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
-from ..constants import E_CHARGE
-from ..base import registered_quantities
+from ..constants import E_CHARGE, VAC_PERMEABILITY
+from ..base import registered_quantities, model_register
 from ..base import Data
-from ..forwards.two_carrier import TwoCarrier
 
+@model_register
 class PolynomialTwoCarrierModel():
     """
     PolynomailTwoCarrierModel
     ===
-    References:
+    References
+    
     J. Appl. Phys. 137, 025702 (2025); doi: 10.1063/5.0248998
     ---
-    根据10.1063/5.0248998提供的多项式方法，双载流子模型能用展开为多项式时的4个系数严格表示。
-    前四个多项式系数直接反映了图像特征。c0,c2对应R_(xx)(B)图像的纵截距和开口狭窄度；c1,c3对应R_{xy}(B)图像的线性斜率与三次项在B=1T附近的起伏强度。
-    在物理意义上，c0对应单载流子模型的R_(sh)，c1对应单载流子模型的R_H
-    更高次项的系数满足一个简单的递推关系：c_(j>=2)= c_3^(j-2)/c_2^(j-3)，这可以理解成：双载流子模型中，磁阻和霍尔电阻率只在四次项及以上存在统计关联，而且这种关联与线性项无关。
+    The double-carrier model can be strictly represented by four of the coefficients of its polynomial expansion:
+    c0, c2; c1, c3.
+    Other coefficients can be derived from these four coefficients using simple recursive formulas
+    Among these coefficients, c0 and c2 directly reflect the geometric features of R_xx(B);
+    And c1 and c3 directly reflect the geometric features of R_xy(B).
     
-    我用c0,c1,c2,c32=c3/c2作为拟合参数
+    This model uses c0, c1, c2, c32=c3/c2 as the optimization parameter
     我用R_xx, R_xy各自的多项式系数表达式的方均根构造了残差，并编写了jacobian以加速收敛。
     指定初值的方法非常自然：将多项式截断后使用线性最小二乘法拟合。
     本策略接受的是SI的B, rho_xx, rho_xy数据，接受的载流子浓度和迁移率初值为厘米单位制。
@@ -28,7 +30,7 @@ class PolynomialTwoCarrierModel():
     同一组c0-c4，当载流子电荷q1,q2同号时对应两组图像完全相同的物理参数解；异号时只有一组物理参数解。
 
     """
-    __slots__ = ("quantites","forward","H","R_xx","R_xy","q1","q2","_R_xx_std","_R_xy_std")
+    __slots__ = ("quantites","data_x","H","R_xx","R_xy","q1","q2","_R_xx_std","_R_xy_std")
 
     def __init__(self, data:Data):
         self.quantites = {
@@ -38,8 +40,9 @@ class PolynomialTwoCarrierModel():
             ("PARA", "carrier 1 charge"): registered_quantities["charge"],
             ("PARA", "carrier 2 charge"): registered_quantities["charge"],
         }
-        self.forward = TwoCarrier
         self.H = data.get_array(self.quantites, ("X", "magnetic field"),"T")
+        self.data_x = self.H
+
         self.R_xx = data.get_array(self.quantites, ("Y", "longitudinal resistivity"), "Ohm*cm")
         self.R_xy = data.get_array(self.quantites, ("Y", "transverse resistivity"), "Ohm*cm")
 
@@ -55,20 +58,29 @@ class PolynomialTwoCarrierModel():
         self._R_xy_std = np.std(self.R_xy)
 
 
-    def forward_factory(self, x):
-        def two_carrier(data: Data):
+    def forward_factory(self, fit_x):
+        n1, n2, mu1, mu2 = fit_x
+        def forward(H: NDArray)->Data:
+            # For each carrier, we get
+            sigma1 = self.q1 * n1 * mu1
+            sigma2 = self.q2 * n2 * mu2
+            # the relation betwean B-field and H-field is
+            #   B = mu0 ( H + M )
+            # For most materials, the absolute value of susceptibility |chi| = |M/H| < 1E-4.
+            # So below is reasonable in transport measurement:
+            B = VAC_PERMEABILITY * H
             denom1 = 1 + (mu1 * B) ** 2
             denom2 = 1 + (mu2 * B) ** 2
             sigma_xx =  sigma1 / denom1 + sigma2 / denom2
-            sigma_xy = B * (sigma1 * mu1 / denom1 + sigma2 * mu2 / denom2)
+            sigma_xy = H * (sigma1 * mu1 / denom1 + sigma2 * mu2 / denom2)
 
             D = (sigma_xx **2 + sigma_xy **2)
-            rho_xx = sigma_xx / D
-            rho_xy = - sigma_xy / D
+            R_xx = sigma_xx / D
+            R_xy = - sigma_xy / D
 
             return np.vstack((rho_xx, rho_xy))
         
-        return two_carrier
+        return forward
 
     def residual(self,x):
         # Convert log-parameters back to actual parameters (ensure positivity)

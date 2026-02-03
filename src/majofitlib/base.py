@@ -112,15 +112,16 @@ class Forward(Protocol):
 
 class Model(Protocol):
     quantities: dict[str,dict]
-    
-    def forward_factory(self, x):
+    data_x: NDArray
+
+    def residual(self, fit_x):
         ...
-    def residual(self, x):
+    def forward_factory(self, para_x):
         ...
 
 @runtime_checkable
 class HasJacobian(Protocol):
-    def jacobian(self, x):
+    def jacobian(self, fit_x):
         ...
 @runtime_checkable
 class HasInitialGuess(Protocol):
@@ -128,9 +129,9 @@ class HasInitialGuess(Protocol):
         ...
 @runtime_checkable
 class HasTransfrom(Protocol):
-    def from_physics(self, x):
+    def from_physics(self, para_x:tuple):
         ...
-    def to_physics_set(self, x:tuple)->set[tuple]:
+    def to_physics_set(self, fit_x:tuple)->set[tuple]:
         ...
 
 

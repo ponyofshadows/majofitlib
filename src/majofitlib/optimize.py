@@ -51,6 +51,7 @@ def least_squares(model:Model,*,
     else:
         res.x_set = set().add(res.x)
     
-    res.datas = model.package_res_set(res.x_set)
+    res.forwards = [model.forward_factory(x) for x in res.x_set]
+    res.datas = [forward(model.data_x) for forward in res.forwards]
 
     return res
