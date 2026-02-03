@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 E_CHARGE = 1.602176634e-19
 
 @dataclass(slots=True)
-class PolynomialTwoCarrierStrategy():
+class PolynomialTwoCarrierModel():
     """
     根据10.1063/5.0248998提供的多项式方法，双载流子模型能用展开为多项式时的4个系数严格表示。
     前四个多项式系数直接反映了图像特征。c0,c2对应R_(xx)(B)图像的纵截距和开口狭窄度；c1,c3对应R_{xy}(B)图像的线性斜率与三次项在B=1T附近的起伏强度。
