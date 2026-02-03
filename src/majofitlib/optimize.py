@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Sequence, Optional
-from scipy.optimize import least_squares
+import scipy
 import numpy as np
 
-from base import Model, HasTransfrom, HasJacobian, HasInitialGuess
+from .base import Model, HasTransfrom, HasJacobian, HasInitialGuess
 
-def least_squares_optimizer(model:Model,*,
+def least_squares(model:Model,*,
                             x0:Optional[Sequence[float]]=None,
                             lower_bounds:Optional[Sequence[float]]=None,
                             upper_bounds:Optional[Sequence[float]]=None,
@@ -15,8 +15,13 @@ def least_squares_optimizer(model:Model,*,
                             max_nfev = 3000,
                             ):
     """
-    本函数输出结果基于scipy.optimize.least_squares的输出，
-    注意，res.x用于储存优化时迭代计算的中间参数，有物理意义的参数实际储存在res.set中，是一个集合。
+    The return value (res) of this function is based on the return value of scipy.optimize.least_squares.
+    Note that res.x is used to store the intermediate parameters for iterative calculations during optimization. 
+    Parameters with physical significance are actually stored in res.set, which is a collection.
+
+    The parameter x0 takes true physical quantities;
+    But lower_bounds and upper_bounds take the bound of intermediate parameters during calculations.
+    Do not specify the bounds unless you understand the meaning of the intermediate parameters.
     """
     if not x0:
         if isinstance(model, HasInitialGuess):
@@ -37,18 +42,15 @@ def least_squares_optimizer(model:Model,*,
     bounds = (tuple(lower_bounds), tuple(upper_bounds))
 
 
-    res = least_squares(model.residual, x0, jac=jac, bounds=bounds, 
+    res = scipy.optimize.least_squares(model.residual, x0, jac=jac, bounds=bounds, 
                          method='trf', xtol=xtol, ftol=ftol, gtol=gtol, max_nfev=max_nfev,
                     )
 
     if isinstance(model, HasTransfrom):
-        sol = model.to_physics(res.x)
+        res.x_set = model.to_physics(res.x)
     else:
-        sol = res.x
-    if isinstance(sol, set):
-        res.set = sol
-    else:
-        res.set = set()
-        res.set.add(res.x)
+        res.x_set = set().add(res.x)
     
+    res.datas = model.package_res_set(res.x_set)
+
     return res

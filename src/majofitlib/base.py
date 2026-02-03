@@ -2,11 +2,12 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable, Callable, Optional, NamedTuple
 from numpy.typing import NDArray
 from collections.abc import MutableMapping
+from itertools import chain
 import numpy as np
 
 
-registered_units = {}
-registered_models = []
+registered_quantities = {}
+registered_models = {}
 
 class Unit(NamedTuple):
     name: str
@@ -21,13 +22,18 @@ class Unit(NamedTuple):
         else:
             return NotImplemented
 
-class PhysicalArray(NamedTuple):
+
+class ArrayWithUint(NamedTuple):
     array: NDArray
-    unit: Unit
+    unit_name: str
+
 
 class Data(MutableMapping):
-    __slot__ = ("_items",)
+    __slots__ = ("_items")
     def __init__(self, init:Optional[dict|Data]=None):
+        self._items = {
+            "X":{}, "Y":{}, "PARA":{}
+                        }
         if init:
             if isinstance(init, Data):
                 self._items = dict(init._items)
@@ -36,46 +42,67 @@ class Data(MutableMapping):
                     self[key] = value
             else:
                 raise TypeError(f"class Data needs a dict to initialize, not {type(init)}.")
-        else:
-            self._items = {}
     
     def __getitem__(self, key):
-        return self._items[key]
+        array_type, physical_quantity = key
+        return self._items[array_type][physical_quantity]
     
     def __setitem__(self, key, value):
-        if isinstance(key, str):
+        if isinstance(key, tuple):
             try:
-                physical_quantity, unit_name = [ s.strip() for s in key.split(",")[0:2] ]
+                array_type, physical_quantity = key[0:2]
             except ValueError:
-                raise ValueError("The key of Data should be a string of comma-separated physical quantities and units." \
-                    "For example: 'H, T'")
+                raise KeyError("The key should be a tuple of an array type and a physical quantity name." \
+                    "For example: 'X, magnetic field'; 'PARA, charge'")
         else:
-            raise TypeError(f"The key of Data should be a string of comma-separated physical quantities and units', not {type(key)}")
+            raise TypeError(f"The key should be a tuple of an array type name and a physical quantity name', not {type(key)}")
         
-        try:
-            for unit in registered_units[physical_quantity]:
-                if unit_name == unit.name:
-                    matched_unit = unit
-                    break
-            else:
-                raise ValueError(f"Unit '{unit_name}' is not found. Here are available units of {physical_quantity}:\n"+
-                                 '\n'.join(f"\t -{unit.name}" for unit in registered_units))
-        except KeyError:
-            raise ValueError(f"Physical quantity '{physical_quantity}' is not found.")
+        if isinstance(value, ArrayWithUint):
+            array_with_unit = value
+        elif isinstance(value, tuple):
+            try:
+                array_value, unit_name = value[0:2]
+            except ValueError:
+                raise ValueError(f"The value should be a tuple of an array-like object and a unit string'")
+            array_with_unit = ArrayWithUint(np.asarray(array_value), unit_name)
+        else:
+            raise TypeError(f"The value should be a tuple of an array-like object and a unit string', not {type(value)}")
 
-        self._items[physical_quantity] = PhysicalArray(np.asarray(value), matched_unit)
+        try:
+            self._items[array_type][physical_quantity] = array_with_unit
+        except KeyError:
+            raise TypeError(f"{array_type} is a wrong array type. Try 'X', 'Y' or 'PARA'.")
     
     def __delitem__(self, key):
-        del self._items[key]
+        array_type, physical_quantity = key
+        del self._items[array_type][physical_quantity]
     
     def __iter__(self):
-        return iter(self._items)
+        def key():
+            for array_type in self._items:
+                for quantity in self._items[array_type]:
+                    yield (array_type, quantity)
+        return key()
 
     def __len__(self):
-        return len(self._items)
+        if self._items["X"]:
+            return len(next(iter(self._items["X"])))
+        else:
+            return 0
+        
     
     def __repr__(self):
-        return f"Data({'\n'.join([f'{key}={value}' for key,value in self._items.items()])})"
+        return "Data()" + "\n".join([f"{key[0]}: {key[1]}={self[key]}" for key in self])
+    
+    def get_array(self,quantities:dict[str,dict], key:tuple[str], unit_name:str)->NDArray:
+        """
+        get a specified numpy.NDArray from Data, under a specified unit.
+        """
+        array_with_unit = self[key]
+        return array_with_unit.array * (quantities[key][unit_name] / array_with_unit.unit)
+
+    def get_headers(self)->set[tuple[str]]:
+        return set(self)
     
 
 
@@ -84,10 +111,13 @@ class Forward(Protocol):
         ...
 
 class Model(Protocol):
-    headers: set[str]
-    forward: Forward
+    quantities: dict[str,dict]
+    
+    def forward_factory(self, x):
+        ...
     def residual(self, x):
         ...
+
 @runtime_checkable
 class HasJacobian(Protocol):
     def jacobian(self, x):
@@ -105,18 +135,15 @@ class HasTransfrom(Protocol):
 
 
 
-def unit_register(physical_quantity:str, unit_name:str, multiplier:float=1, unicode_name:Optional[str]=None):
+def quantity_unit_register(physical_quantity:str, unit_name:str, multiplier:float=1, unicode_name:Optional[str]=None):
     if unicode_name is None:
         unicode_name = unit_name
-    registered_units.setdefault(physical_quantity, set()).add(
-        Unit(
+    registered_quantities.setdefault(physical_quantity, {})[unit_name] = Unit(
             name = unit_name,
             multiplier= multiplier,
             unicode_name=unicode_name,
         )
-    )
 
-
-def model_register(model:Model)->Model:
-    registered_models.append(model)
+def model_register(model:Model):
+    registered_models.setdefault(frozenset(model.quantities), []).append(model)
     return model
