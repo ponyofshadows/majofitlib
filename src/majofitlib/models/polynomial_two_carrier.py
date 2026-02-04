@@ -21,14 +21,18 @@ class PolynomialTwoCarrierModel():
     Among these coefficients, c0 and c2 directly reflect the geometric features of R_xx(B);
     And c1 and c3 directly reflect the geometric features of R_xy(B).
     
-    This model uses c0, c1, c2, c32=c3/c2 as the optimization parameter
-    我用R_xx, R_xy各自的多项式系数表达式的方均根构造了残差，并编写了jacobian以加速收敛。
-    指定初值的方法非常自然：将多项式截断后使用线性最小二乘法拟合。
-    本策略接受的是SI的B, rho_xx, rho_xy数据，接受的载流子浓度和迁移率初值为厘米单位制。
-    本策略在计算过程中全程用SI单位制，并提供了计算时使用的参数(c0-c4)与输入输出参数(厘米单位制的n1,n2,mu1,mu2)。之间的转换函数
+    This model uses c0, c1, c2, c32=c3/c2 as the optimization parameter.
+    Difference between R_xx(mu0*H; c0, c1, c2, c32), R_xy(mu0*H; c0, c1, c2, c32) 
+    and the corresponding experimental data is used for construting the residual.
 
-    同一组c0-c4，当载流子电荷q1,q2同号时对应两组图像完全相同的物理参数解；异号时只有一组物理参数解。
+    Jac is provided for convergence acceleration.
+    Interrupted polynomial method is used for Initial value guess.
 
+    We abide by the convention that the charge q_i and mobiility mu_i of same charge carry the same sign.
+
+    For the same set of c0-c4, when the sign of q1 and q2 are the same,
+    there are two different physical parameter solutions (n1, n2, mu1, mu2) corresponding to the exactly same figure.
+    When there are different signs, there is only one set of physical parameter solutions.
     """
     __slots__ = ("quantites","data_x","H","R_xx","R_xy","q1","q2","_R_xx_std","_R_xy_std")
 
@@ -39,6 +43,10 @@ class PolynomialTwoCarrierModel():
             ("Y", "transverse resistivity"): registered_quantities["resistivity"],
             ("PARA", "carrier 1 charge"): registered_quantities["charge"],
             ("PARA", "carrier 2 charge"): registered_quantities["charge"],
+            ("PARA", "carrier 1 concentration"): registered_quantities["carrier concentration"],
+            ("PARA", "carrier 2 concentration"): registered_quantities["carrier concentration"],
+            ("PARA", "carrier 1 mobility"): registered_quantities["mobility"],
+            ("PARA", "carrier 2 mobility"): registered_quantities["mobility"],
         }
         self.H = data.get_array(self.quantites, ("X", "magnetic field"),"T")
         self.data_x = self.H
@@ -72,21 +80,35 @@ class PolynomialTwoCarrierModel():
             denom1 = 1 + (mu1 * B) ** 2
             denom2 = 1 + (mu2 * B) ** 2
             sigma_xx =  sigma1 / denom1 + sigma2 / denom2
-            sigma_xy = H * (sigma1 * mu1 / denom1 + sigma2 * mu2 / denom2)
+            sigma_xy = B * (sigma1 * mu1 / denom1 + sigma2 * mu2 / denom2)
 
             D = (sigma_xx **2 + sigma_xy **2)
             R_xx = sigma_xx / D
             R_xy = - sigma_xy / D
 
-            return np.vstack((rho_xx, rho_xy))
+
+            return Data({
+                ("X", "magnetic field"): (H, "T"),
+                ("Y", "longitudinal resistivity"): (R_xx, "Ohm*cm"),
+                ("Y", "transverse resistivity"): (R_xy, "Ohm*cm"),
+                ("PARA", "carrier 1 charge"): (self.q1, "C"),
+                ("PARA", "carrier 2 charge"): (self.q2, "C"),
+                ("PARA", "carrier 1 concentration"): (n1, "cm^-3"),
+                ("PARA", "carrier 2 concentration"): (n2, "cm^-3"),
+                ("PARA", "carrier 1 mobility"): (mu1, "cm^2/(V*s)"),
+                ("PARA", "carrier 2 mobility"): (mu2, "cm^2/(V*s)"),
+            })
         
         return forward
 
     def residual(self,x):
-        # Convert log-parameters back to actual parameters (ensure positivity)
+        """
+        R_xx(B) = c0 + c2 B^2 / (1 + ( c32 B)^2 )
+        R_xy(B) = c1B + c3 B^3 / (1 + ( c32 B)^2 )
+        """
         c0,c1,c2,c32 = x
         c3 = c32 * c2
-        B = self.H
+        B = VAC_PERMEABILITY * self.H
         rho_fit_denom = 1 + (c32*B)**2
         
         rho_xx_fit = c0 + c2 * B**2 / rho_fit_denom
@@ -99,20 +121,11 @@ class PolynomialTwoCarrierModel():
 
     def jacobian(self, x):
         """
-        Analytic Jacobian of residual vector w.r.t (c0, c1, c2, c32),
-        where c32 = c3/c2.
-
-        Model:
-            den    = 1 + (c32 * B)^2
-            rho_xx = c0 + c2 * B^2 / den
-            rho_xy = c1 * B + (c32 * c2) * B^3 / den
-
-        Residual:
-            r_xx = (rho_xx - rho_xx_data) / std_xx
-            r_xy = (rho_xy - rho_xy_data) / std_xy
-
-        Returns:
-            J with shape (2*N, 4)
+        Shape of R_xx or R_xy is (N,).
+        Then shape of residual should be (2*N,). (The same as (1, 2*N) in 2-D operation in numpy broadcasting)
+        so jac is with shape (2*N, 4). Then we can operate:
+        
+        to get the Gradient.
         """
         c0, c1, c2, c32 = x
         B = self.H
@@ -225,7 +238,7 @@ class PolynomialTwoCarrierModel():
         
         return c0, c1, c2, c32
 
-    def to_physics(self,x):
+    def to_physics_set(self,x):
         c0, c1, c2, c32 = x
         q1, q2 = self.q1, self.q2
         x_set = set()
