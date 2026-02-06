@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable, Callable, Optional, NamedTuple
 from numpy.typing import NDArray
 from collections.abc import MutableMapping
-from itertools import chain
 import numpy as np
 
 

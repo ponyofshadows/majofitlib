@@ -123,9 +123,16 @@ class PolynomialTwoCarrierModel():
         """
         Shape of R_xx or R_xy is (N,).
         Then shape of residual should be (2*N,). (The same as (1, 2*N) in 2-D operation in numpy broadcasting)
-        so jac is with shape (2*N, 4). Then we can operate:
-        
-        to get the Gradient.
+        Shape of jac should be (2*N, 4). Here is the reason:
+        We have a scalar to be optimized:
+            F(x) = [R_xx_std(x)]^2 + [R_xy_std(x)]^2
+        The gradient is
+            dF(x)/dx = 2 d R_xx_std(x) / dx * R_xx_std(x) + 2 d R_xy_std(x) / dx * R_xy_std(x)
+            (x represents the 4 parameters to be optimized.)
+        Let's try to represent it in NDArray (shape: (4,)):
+            F(x) = R_xx_std @ R_xx_std
+            jac = np.concatenate([d_R_xx_std_dx, d_R_xy_std_dx])
+            dF(x)/dx = 2 jac^T @ np.concatenate([R_xx_std, R_xy_std]) 
         """
         c0, c1, c2, c32 = x
         B = self.H
