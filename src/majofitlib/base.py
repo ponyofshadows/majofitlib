@@ -1,14 +1,16 @@
 from __future__ import annotations
-from typing import Protocol, runtime_checkable, Callable, Optional, NamedTuple
+from typing import Protocol, runtime_checkable, Callable, Optional, NamedTuple, Iterable
 from numpy.typing import NDArray
 from collections.abc import MutableMapping
+from dataclasses import dataclass, field
 import numpy as np
 
 
-registered_quantities = {}
+registered_units = {}
 registered_models = {}
 
 class Unit(NamedTuple):
+    physical_quantity: str
     name: str
     multiplier: float
     unicode_name: str
@@ -20,94 +22,83 @@ class Unit(NamedTuple):
             return self.multiplier / other.multiplier
         else:
             return NotImplemented
+    
+    def convert(self, other_unit_name)->float:
+        return registered_units[self.physical_quantity][other_unit_name] / self
 
 
-class ArrayWithUint(NamedTuple):
+
+@dataclass(slots=True)
+class Column:
+    name: str
     array: NDArray
-    unit_name: str
-
+    unit: Unit
+    col_type: str
+    _allowed_types:tuple = field(init=False, default=("X","Y","PARA"))
+    
+    def __post_init__(self):
+        if self.col_type not in self._allowed_types:
+            raise ValueError(f"Illegal col_type:{self.col_type}. Supported options:{self._allowed_types}")
 
 class Data(MutableMapping):
     __slots__ = ("_items")
     def __init__(self, init:Optional[dict|Data]=None):
-        self._items = {
-            "X":{}, "Y":{}, "PARA":{}
-                        }
         if init:
             if isinstance(init, Data):
                 self._items = dict(init._items)
             elif isinstance(init, dict):
+                self._items = {}
                 for key, value in init.items():
                     self[key] = value
+            elif isinstance(init, Iterable) and not isinstance(init, str):
+                for item in init:
+                    self.add(item)
             else:
-                raise TypeError(f"class Data needs a dict to initialize, not {type(init)}.")
+                raise TypeError(f"class Data needs a dict or Data to initialize, not {type(init)}.")
     
     def __getitem__(self, key):
-        array_type, physical_quantity = key
-        return self._items[array_type][physical_quantity]
+        return self._items[key]
     
     def __setitem__(self, key, value):
-        if isinstance(key, tuple):
-            try:
-                array_type, physical_quantity = key[0:2]
-            except ValueError:
-                raise KeyError("The key should be a tuple of an array type and a physical quantity name." \
-                    "For example: 'X, magnetic field'; 'PARA, charge'")
+        if isinstance(value, Column):
+            if key == value.name:
+                self._items[key] = value
+            else:
+                raise ValueError(f"The key and the Column.name must be the same")
         else:
-            raise TypeError(f"The key should be a tuple of an array type name and a physical quantity name', not {type(key)}")
-        
-        if isinstance(value, ArrayWithUint):
-            array_with_unit = value
-        elif isinstance(value, tuple):
-            try:
-                array_value, unit_name = value[0:2]
-            except ValueError:
-                raise ValueError(f"The value should be a tuple of an array-like object and a unit string'")
-            array_with_unit = ArrayWithUint(np.asarray(array_value), unit_name)
+            raise TypeError(f"class Data needs Column as value, not a {type(value)}")
+    
+    def add(self, value):
+        if isinstance(value, Column):
+            self._items[value.name] = value
         else:
-            raise TypeError(f"The value should be a tuple of an array-like object and a unit string', not {type(value)}")
-
-        try:
-            self._items[array_type][physical_quantity] = array_with_unit
-        except KeyError:
-            raise TypeError(f"{array_type} is a wrong array type. Try 'X', 'Y' or 'PARA'.")
+            raise TypeError(f"class Data needs Column as value, not a {type(value)}")
     
     def __delitem__(self, key):
-        array_type, physical_quantity = key
-        del self._items[array_type][physical_quantity]
+        del self._items[key]
     
     def __iter__(self):
-        def key():
-            for array_type in self._items:
-                for quantity in self._items[array_type]:
-                    yield (array_type, quantity)
-        return key()
+        return iter(self._items)
 
     def __len__(self):
-        if self._items["X"]:
-            return len(next(iter(self._items["X"])))
-        else:
-            return 0
+        return len(self._items)
         
     
     def __repr__(self):
-        return "Data()" + "\n".join([f"{key[0]}: {key[1]}={self[key]}" for key in self])
+        return f"Data({'\n'.join(column for column in self._items.values())})"
+        
     
-    def get_array(self,quantities:dict[str,dict], key:tuple[str], unit_name:str)->NDArray:
+    def get_array(self, key:str, unit_name:str)->NDArray:
         """
         get a specified numpy.NDArray from Data, under a specified unit.
         """
-        array_with_unit = self[key]
-        return array_with_unit.array * (quantities[key][unit_name] / array_with_unit.unit)
+        column = self[key]
+        return column.array * column.unit.convert(unit_name)
 
-    def get_headers(self)->set[tuple[str]]:
+    def get_headers(self)->set[str]:
         return set(self)
     
 
-
-class Forward(Protocol):
-    def __call__(self, x):
-        ...
 
 class Model(Protocol):
     quantities: dict[str,dict]
@@ -135,10 +126,11 @@ class HasTransfrom(Protocol):
 
 
 
-def quantity_unit_register(physical_quantity:str, unit_name:str, multiplier:float=1, unicode_name:Optional[str]=None):
+def unit_register(physical_quantity:str, unit_name:str, multiplier:float=1, unicode_name:Optional[str]=None):
     if unicode_name is None:
         unicode_name = unit_name
-    registered_quantities.setdefault(physical_quantity, {})[unit_name] = Unit(
+    registered_units.setdefault(physical_quantity, {})[unit_name] = Unit(
+            physical_quantity=physical_quantity,
             name = unit_name,
             multiplier= multiplier,
             unicode_name=unicode_name,
