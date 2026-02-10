@@ -118,7 +118,7 @@ class HasInitialGuess(Protocol):
     def initial_guess(self):
         ...
 @runtime_checkable
-class HasTransfrom(Protocol):
+class HasTransform(Protocol):
     def from_physics(self, para_x:tuple):
         ...
     def to_physics_set(self, fit_x:tuple)->set[tuple]:
