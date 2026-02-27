@@ -1,6 +1,7 @@
 """
-To ensure the accuracy of the unit converseion between SI and Gaussian, 
-let's review the basic concepts of electromagnetism.
+Eeduction
+------
+Review of basic concepts in electromagnetism (in SI).
 
 Some particles can carray charge, which makes these particles acted upon by Lorentz force
 when they are placed in two kinds of fields: electric field and magnetic field.
@@ -46,6 +47,28 @@ Now we get the Maxwell's equations in materials:
     nabla*B = 0
     nabla xx E = - delB/delt
     nabla xx H = J_f + delD/delt
+The following linar reactive expressions are commonly used:
+    D = mu E
+    H = epsilon B
+Mu and epsilon can be scalars or tensors, depending on whether the material is isotropic
+------
+The principle under the same system of units
+    1. Every physical law must be dimensionally consistent: [LHS] = [RHS]
+    2. Conversion constants are just bookkeeping undet certain unit system, multiplicity of units is human-centered.
+The principle under different systems of units:
+    Suppose we are considering (n+1) physical quantities.
+    Among them, the conversion coefficient of q_1,q_2,...,q_n in thete unit system is know.
+    To get the unknown conversion coefficient of q_x between system A and B, we can find a equation:
+        F(q_1,q_2,...,q_n; q_x) = 0
+    In two unit system:
+        F_A(q_1A,q_2A,...,q_nA; q_xA) = 0
+        F_B(q_1B,q_2B,...,q_B; q_xB) = 0
+    Then substitute the different values of the same quantities  q_1, q_2, ..., q_n into the above equations without units,
+    we obtain the values q_xA and q_xB.
+    q_1, q_2, ..., q_n remain same quantities in two equations, which means q_xA and q_xB are the same when we write the values with units:
+        q_xA [Unit of q_xA] = q_xB [Unit of q_xB]
+    So
+        [Unit of q_xB] // [Unit of q_xA] = q_xA // q_xB
 """
 from .base import unit_register
 from .constants import E_CHARGE
