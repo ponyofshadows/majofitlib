@@ -13,7 +13,7 @@ class Unit(NamedTuple):
     physical_quantity: str
     name: str
     multiplier: float
-    unicode_name: str
+    ascii_name: Optional[str]=None
 
     def __str__(self):
         return self.unicode_name
@@ -23,22 +23,22 @@ class Unit(NamedTuple):
         else:
             return NotImplemented
     
-    def convert(self, other_unit_name)->float:
-        return registered_units[self.physical_quantity][other_unit_name] / self
+    def convert(self, other_unit_name:str)->float:
+        return self / registered_units[self.physical_quantity][other_unit_name]
 
 
 
+_allowed_column_types:tuple = field(init=False, default=("X","Y","PARA"))
 @dataclass(slots=True)
 class Column:
     name: str
     array: NDArray
     unit: Unit
     col_type: str
-    _allowed_types:tuple = field(init=False, default=("X","Y","PARA"))
     
     def __post_init__(self):
-        if self.col_type not in self._allowed_types:
-            raise ValueError(f"Illegal col_type:{self.col_type}. Supported options:{self._allowed_types}")
+        if self.col_type not in _allowed_column_types:
+            raise ValueError(f"Illegal col_type:{self.col_type}. Supported options:{_allowed_column_types}")
 
 class Data(MutableMapping):
     __slots__ = ("_items")
@@ -126,14 +126,14 @@ class HasTransform(Protocol):
 
 
 
-def unit_register(physical_quantity:str, unit_name:str, multiplier:float=1, unicode_name:Optional[str]=None):
-    if unicode_name is None:
-        unicode_name = unit_name
+def unit_register(physical_quantity:str, unit_name:str, multiplier:float, ascii_name:Optional[str]=None):
+    if name is None:
+        name = unit_name
     registered_units.setdefault(physical_quantity, {})[unit_name] = Unit(
             physical_quantity=physical_quantity,
-            name = unit_name,
+            name=unit_name,
             multiplier= multiplier,
-            unicode_name=unicode_name,
+            ascii_name = ascii_name,
         )
 
 def model_register(model:Model):
