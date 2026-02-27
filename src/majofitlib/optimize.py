@@ -3,7 +3,7 @@ from typing import Sequence, Optional
 import scipy
 import numpy as np
 
-from .base import Model, HasTransfrom, HasJacobian, HasInitialGuess
+from .base import Model, HasTransform, HasJacobian, HasInitialGuess
 
 def least_squares(model:Model,*,
                             x0:Optional[Sequence[float]]=None,

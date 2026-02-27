@@ -70,8 +70,8 @@ The principle under different systems of units:
     So
         [Unit of q_xB] // [Unit of q_xA] = q_xA // q_xB
 """
-from .base import unit_register, Unit
-from .constants import E_CHARGE, VAC_PERMEABILITY, VAC_PERMITIVITY
+from .base import unit_register
+from .constants import VAC_PERMEABILITY, VAC_PERMITIVITY
 import numpy as np
 
 # Derived from Coulomb's law
@@ -89,26 +89,26 @@ unit_register("charge", "statC", multiplier=np.sqrt(4 * np.pi * VAC_PERMITIVITY 
 # Gaussian: F_(Lorentz) = qE + 1/c*qvB
 ## 1 kg*m*s^(-2) = 1E5 g*cm*s^(-2)
 ## 1 m*s^(-1) = 1E2 cm*s^(-1)
-unit_register("B-field", "T", multiplier=1, name="T")
-unit_register("B-field", "G", multiplier=np.sqrt(1E13*VAC_PERMEABILITY/(4*np.pi)), name="G")
-unit_register("B-field", "Gs", multiplier=np.sqrt(1E13*VAC_PERMEABILITY/(4*np.pi)), name="Gs")
+unit_register("B-field", "T", multiplier=1, ascii_name="T")
+unit_register("B-field", "G", multiplier=np.sqrt(VAC_PERMEABILITY*0.1/(4*np.pi)), ascii_name="G")
+unit_register("B-field", "Gs", multiplier=np.sqrt(VAC_PERMEABILITY*0.1/(4*np.pi)), ascii_name="Gs")
 #       SI: B = mu0(H + M)
 # Gaussian: B = H + M
-unit_register("H-field", "A/m", multiplier=1, name="A/m")
-unit_register("H-field", "Oe", multiplier=np.sqrt(1E13/(4*np.pi*VAC_PERMEABILITY)), name="Oe")
+unit_register("H-field", "A/m", multiplier=1, ascii_name="A/m")
+unit_register("H-field", "Oe", multiplier=np.sqrt(0.1/(4*np.pi*VAC_PERMEABILITY)), ascii_name="Oe")
 # M is often very small. At this time, H can be directly used as B
-unit_register("B-field", "A/m", multiplier=VAC_PERMEABILITY, name="A/m")
-unit_register("B-field", "Oe", multiplier=np.sqrt(1E13*VAC_PERMEABILITY/(4*np.pi)), name="Oe")
+unit_register("B-field", "A/m", multiplier=VAC_PERMEABILITY, ascii_name="A/m")
+unit_register("B-field", "Oe", multiplier=np.sqrt(VAC_PERMEABILITY*0.1/(4*np.pi)), ascii_name="Oe")
 
 
-unit_register("resistivity", "Ohm*m", multiplier=1, name="Ω·m")
-unit_register("resistivity", "Ohm*cm", multiplier=1E-2, name="Ω·cm")
-unit_register("resistivity", "mOhm*cm", multiplier=1E-5, name="mΩ·cm")
-unit_register("resistivity", "muOhm*cm", multiplier=1E-8,name="μΩ·m")
+unit_register("resistivity", "Ohm*m", multiplier=1, ascii_name="Ω·m")
+unit_register("resistivity", "Ohm*cm", multiplier=1E-2, ascii_name="Ω·cm")
+unit_register("resistivity", "mOhm*cm", multiplier=1E-5, ascii_name="mΩ·cm")
+unit_register("resistivity", "muOhm*cm", multiplier=1E-8,ascii_name="μΩ·m")
 
 
-unit_register("carrier concentration", "m^-3", multiplier=1,name="m⁻³")
-unit_register("carrier concentration", "cm^-3", multiplier=1E-6,name="cm⁻³")
+unit_register("carrier concentration", "m^-3", multiplier=1,ascii_name="m⁻³")
+unit_register("carrier concentration", "cm^-3", multiplier=1E-6,ascii_name="cm⁻³")
 
-unit_register("mobility", "m^2/(V*s)", multiplier=1,name="m²/(V·s)")
-unit_register("mobility", "cm^2/(V*s)", multiplier=1E-4,name="cm²/(V·s)")
+unit_register("mobility", "m^2/(V*s)", multiplier=1,ascii_name="m²/(V·s)")
+unit_register("mobility", "cm^2/(V*s)", multiplier=1E-4,ascii_name="cm²/(V·s)")

@@ -127,8 +127,8 @@ class HasTransform(Protocol):
 
 
 def unit_register(physical_quantity:str, unit_name:str, multiplier:float, ascii_name:Optional[str]=None):
-    if name is None:
-        name = unit_name
+    if ascii_name is None:
+        ascii_name = unit_name
     registered_units.setdefault(physical_quantity, {})[unit_name] = Unit(
             physical_quantity=physical_quantity,
             name=unit_name,
