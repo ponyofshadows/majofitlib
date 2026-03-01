@@ -37,25 +37,11 @@ class PolynomialTwoCarrierModel():
     __slots__ = ("quantites","data_x","H","R_xx","R_xy","q1","q2","_R_xx_std","_R_xy_std")
 
     def __init__(self, data:Data):
-        self.quantites = {
-            ("X","magnetic field"): registered_quantities["magnetic field"],
-            ("Y", "longitudinal resistivity"): registered_quantities["resistivity"],
-            ("Y", "transverse resistivity"): registered_quantities["resistivity"],
-            ("PARA", "carrier 1 charge"): registered_quantities["charge"],
-            ("PARA", "carrier 2 charge"): registered_quantities["charge"],
-            ("PARA", "carrier 1 concentration"): registered_quantities["carrier concentration"],
-            ("PARA", "carrier 2 concentration"): registered_quantities["carrier concentration"],
-            ("PARA", "carrier 1 mobility"): registered_quantities["mobility"],
-            ("PARA", "carrier 2 mobility"): registered_quantities["mobility"],
-        }
-        self.H = data.get_array(self.quantites, ("X", "magnetic field"),"T")
-        self.data_x = self.H
-
-        self.R_xx = data.get_array(self.quantites, ("Y", "longitudinal resistivity"), "Ohm*cm")
-        self.R_xy = data.get_array(self.quantites, ("Y", "transverse resistivity"), "Ohm*cm")
-
-        self.q1 = data.get_array(self.quantites, ("PARA", "carrier 1 charge"), "C")
-        self.q2 = data.get_array(self.quantites, ("PARA", "carrier 2 charge"), "C")
+        self.H = data.get_array("magnetic field", "T")
+        self.R_xx = data.get_array("longtitudinal resistivity", "Ohm*cm")
+        self.R_xy = data.get_array("transverse resistivity", "Ohm*cm")
+        self.q1 = data.get_array("carrier 1 charge", "C")
+        self.q2 = data.get_array("carrier 2 charge", "C")
 
         if np.abs(self.q1) < E_CHARGE:
             raise ValueError(f"Carrier 1 charge cannot be smaller than the elementary charge")

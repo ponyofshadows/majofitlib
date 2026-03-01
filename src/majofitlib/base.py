@@ -28,19 +28,17 @@ class Unit(NamedTuple):
 
 
 
-_allowed_column_types:tuple = field(init=False, default=("X","Y","PARA"))
 @dataclass(slots=True)
 class Column:
-    name: str
     array: NDArray
     unit: Unit
-    col_type: str
     
-    def __post_init__(self):
-        if self.col_type not in _allowed_column_types:
-            raise ValueError(f"Illegal col_type:{self.col_type}. Supported options:{_allowed_column_types}")
-
 class Data(MutableMapping):
+    """
+    Data is a MutableMapping.
+    key: a string of the name of the physical quatities
+    value: a Colomn(contains the data array and unit)
+    """
     __slots__ = ("_items")
     def __init__(self, init:Optional[dict|Data]=None):
         if init:
@@ -50,9 +48,6 @@ class Data(MutableMapping):
                 self._items = {}
                 for key, value in init.items():
                     self[key] = value
-            elif isinstance(init, Iterable) and not isinstance(init, str):
-                for item in init:
-                    self.add(item)
             else:
                 raise TypeError(f"class Data needs a dict or Data to initialize, not {type(init)}.")
     
@@ -61,16 +56,7 @@ class Data(MutableMapping):
     
     def __setitem__(self, key, value):
         if isinstance(value, Column):
-            if key == value.name:
-                self._items[key] = value
-            else:
-                raise ValueError(f"The key and the Column.name must be the same")
-        else:
-            raise TypeError(f"class Data needs Column as value, not a {type(value)}")
-    
-    def add(self, value):
-        if isinstance(value, Column):
-            self._items[value.name] = value
+            self._items[key] = value
         else:
             raise TypeError(f"class Data needs Column as value, not a {type(value)}")
     
